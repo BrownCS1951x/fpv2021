@@ -1,0 +1,8 @@
+[package]
+name = "fpv2021"
+version = "0.1"
+lean_version = "leanprover-community/lean:3.32.1"
+path = "src"
+
+[dependencies]
+mathlib = {git = "https://github.com/leanprover-community/mathlib", rev = "2eaec057857bc3577abc6c99e2e180a7777496d4"}
