@@ -87,6 +87,7 @@ or by having too many files open in VSCode that import each other.
 First, in VSCode, close any editor tabs that you aren't using anymore.
 Then open the Command Palette (`ctrl-shift-p` or `cmd-shift-p`)
 and run `Lean: Restart`. 
+You might find it useful to map this to a hotkey in VSCode. Rob uses `ctrl-r`.
 
 If that doesn't work, let's make sure you have a fresh copy of the library.
 In the root `fpv2021` directory, run:
