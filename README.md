@@ -81,12 +81,22 @@ cp src/homework/homework_1.lean src/homework/homework_1_rob.lean
 The Lean files should be quick to load. 
 If you see orange bars in VSCode for a long time (20 seconds is way too much),
 something might be wrong.
-In the root `fpv2021` directory, try:
+This can be caused by accidentally making changes to library files,
+or by having too many files open in VSCode that import each other.
+
+First, in VSCode, close any editor tabs that you aren't using anymore.
+Then open the Command Palette (`ctrl-shift-p` or `cmd-shift-p`)
+and run `Lean: Restart`. 
+
+If that doesn't work, let's make sure you have a fresh copy of the library.
+In the root `fpv2021` directory, run:
 ```bash
 leanpkg configure
 leanproject get-mathlib
 lean --make src/lovelib.lean
 ```
+If this last line takes more than a few seconds, things might still be wrong.
+Talk to Rob or the TAs.
 
 ## Contents
 
