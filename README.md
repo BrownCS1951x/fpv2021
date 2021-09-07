@@ -28,6 +28,8 @@ To set up this project, run:
 
 ```bash
 leanproject get git@github.com:BrownCS1951x/fpv2021.git
+cd fpv2021
+lean --make src/lovelib.lean
 ```
 
 When you open VSCode, make sure that you use the **Open Folder** feature
@@ -52,16 +54,16 @@ You can check whether you have modified any files in the repository with
 git status
 ```
 If you have no modified files, pulling our updates is easy:
-```
+```bash
 git pull
 ```
 If you have modifications, you should either commit them:
-```
+```bash
 git commit -am "your message here"
 git pull
 ```
 or stash them:
-```
+```bash
 git stash
 git pull
 git stash pop
@@ -72,6 +74,18 @@ For this reason, especially with the homeworks,
 we recommend editing a copy of the files:
 ```
 cp src/homework/homework_1.lean src/homework/homework_1_rob.lean
+```
+
+### Debugging
+
+The Lean files should be quick to load. 
+If you see orange bars in VSCode for a long time (20 seconds is way too much),
+something might be wrong.
+In the root `fpv2021` directory, try:
+```bash
+leanpkg configure
+leanproject get-mathlib
+lean --make src/lovelib.lean
 ```
 
 ## Contents
