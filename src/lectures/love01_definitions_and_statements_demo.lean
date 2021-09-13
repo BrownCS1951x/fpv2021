@@ -81,6 +81,9 @@ Application is left-associative: `f x y z` = `((f x) y) z`. -/
 #check (bool → ℕ) → ℤ
 #check ℕ → (bool → ℕ) → ℤ
 
+#check prod ℕ bool 
+#check prod
+
 #check λx : ℕ, x
 #check λf : ℕ → ℕ, λg : ℕ → ℕ, λh : ℕ → ℕ, λx : ℕ, h (g (f x))
 #check λ(f g h : ℕ → ℕ) (x : ℕ), h (g (f x))
@@ -144,7 +147,7 @@ def some_fun_of_type : (α → β → γ) → ((β → α) → β) → α → γ
 /-! ## Type Definitions
 
 An __inductive type__ (also called __inductive datatype__,
-__algebraic datatype__, or just __datatype__) is a type that consists all the
+__algebraic datatype__, or just __datatype__) is a type that consists of all the
 values that can be built using a finite number of applications of its
 __constructors__, and only those.
 
