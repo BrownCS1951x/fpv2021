@@ -88,47 +88,15 @@ lemma fst_of_two_props₅ (a b : Prop) (ha : a) (hb : b) :
   a :=
 by assumption
 
-/-! `refl` proves `l = r`, where the two sides are syntactically equal up to
-computation. Computation means unfolding of definitions, β-reduction
-(application of λ to an argument), `let`, and more. -/
-
-lemma α_example {α β : Type} (f : α → β) :
-  (λx, f x) = (λy, f y) :=
-begin
-  refl
-end
-
-lemma α_example₂ {α β : Type} (f : α → β) :
-  (λx, f x) = (λy, f y) :=
-by refl
-
-lemma β_example {α β : Type} (f : α → β) (a : α) :
-  (λx, f x) a = f a :=
-by refl
-
-def double (n : ℕ) : ℕ :=
-n + n
-
-lemma δ_example :
-  double 5 = 5 + 5 :=
-by refl
-
-lemma ζ_example :
-  (let n : ℕ := 2 in n + n) = 4 :=
-by refl
-
-lemma η_example {α β : Type} (f : α → β) :
-  (λx, f x) = f :=
-by refl
-
-lemma ι_example {α β : Type} (a : α) (b : β) :
-  prod.fst (a, b) = a :=
-by refl
-
-
 /-! ## Reasoning about Logical Connectives and Quantifiers
 
-Introduction rules: -/
+Introduction rules: 
+
+The relevant symbol appears in the *conclusion* of the statement.
+(On the right side of the ->)
+
+We apply these rules when the symbol appears in our *goal*.
+-/
 
 #check true.intro
 #check not.intro
@@ -138,7 +106,13 @@ Introduction rules: -/
 #check iff.intro
 #check exists.intro
 
-/-! Elimination rules: -/
+/-! Elimination rules: 
+
+The relevant symbol appears in a *hypothesis* of the statement.
+(On the left side of the ->)
+
+We apply these rules when the symbol appears in our *context*.
+-/
 
 #check false.elim
 #check and.elim_left
@@ -220,6 +194,10 @@ begin
   exact ha
 end
 
+
+def double (n : ℕ) : ℕ :=
+n + n
+
 lemma nat_exists_double_iden :
   ∃n : ℕ, double n = n :=
 begin
@@ -229,6 +207,50 @@ end
 
 
 /-! ## Reasoning about Equality -/
+
+
+
+/-! `refl` proves `l = r`, where the two sides are syntactically equal up to
+computation. Computation means unfolding of definitions, β-reduction
+(application of λ to an argument), `let`, and more. -/
+
+lemma α_example {α β : Type} (f : α → β) :
+  (λx, f x) = (λy, f y) :=
+begin
+  refl
+end
+
+lemma α_example₂ {α β : Type} (f : α → β) :
+  (λx, f x) = (λy, f y) :=
+by refl
+
+lemma β_example {α β : Type} (f : α → β) (a : α) :
+  (λx, f x) a = f a :=
+by refl
+
+lemma δ_example :
+  double 5 = 5 + 5 :=
+by refl
+
+lemma ζ_example :
+  (let n : ℕ := 2 in n + n) = 2 + 2 :=
+by refl
+
+lemma η_example {α β : Type} (f : α → β) :
+  (λx, f x) = f :=
+by refl
+
+inductive my_prod (α β : Type) : Type
+| mk : α → β → my_prod
+
+def my_prod.first {α β : Type} : my_prod α β → α
+| (my_prod.mk a b) := a
+
+lemma ι_example {α β : Type} (a : α) (b : β) :
+  my_prod.first (my_prod.mk a b) = a :=
+by refl
+
+
 
 #check eq.refl
 #check eq.symm
@@ -318,26 +340,26 @@ end
 /-! We use `induction'`, a variant of Lean's built-in `induction` tactic. The
 two tactics are similar, but `induction'` is more user-friendly. -/
 
-lemma add_succ (m n : ℕ) :
-  add (nat.succ m) n = nat.succ (add m n) :=
+lemma add_succ (i j : ℕ) :
+  add (nat.succ i) j = nat.succ (add i j) :=
 begin
-  induction' n,
+  induction' j,
   { refl },
   { simp [add, ih] }
 end
 
-lemma add_comm (m n : ℕ) :
-  add m n = add n m :=
+lemma add_comm (i j : ℕ) :
+  add i j = add j i :=
 begin
-  induction' n,
+  induction' j,
   { simp [add, add_zero] },
   { simp [add, add_succ, ih] }
 end
 
-lemma add_assoc (l m n : ℕ) :
-  add (add l m) n = add l (add m n) :=
+lemma add_assoc (i j k : ℕ) :
+  add (add i j) k = add i (add j k) :=
 begin
-  induction' n,
+  induction' k,
   { refl },
   { simp [add, ih] }
 end
@@ -352,10 +374,10 @@ is useful for the `cc` invocation below. -/
 @[instance] def add.is_associative : is_associative ℕ add :=
 { assoc := add_assoc }
 
-lemma mul_add (l m n : ℕ) :
-  mul l (add m n) = add (mul l m) (mul l n) :=
+lemma mul_add (i j k : ℕ) :
+  mul i (add j k) = add (mul i j) (mul i k) :=
 begin
-  induction' n,
+  induction' k,
   { refl },
   { simp [add, mul, ih],
     cc }
