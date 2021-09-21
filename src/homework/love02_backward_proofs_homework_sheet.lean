@@ -44,7 +44,13 @@ sorry
 /-! ## Question 2 (5 points): Logical Connectives
 
 2.1 (1 point). Prove the following property about double negation using basic
-tactics.
+tactics. You should not use the rules in the `classical` namespace like 
+`classical.em` and `classical.by_contradiction`. 
+
+Fun note: to prove the inner formula `¬¬ a → a` on its own, you would need 
+to use classical logic. `herman` is a nice example of "double negation translation":
+https://en.wikipedia.org/wiki/Double-negation_translation
+
 
 Hints:
 
