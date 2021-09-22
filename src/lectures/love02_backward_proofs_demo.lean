@@ -206,11 +206,25 @@ begin
 end
 
 
-/-! ## Reasoning about Equality -/
+/-! ## Reasoning about Equality
+
+*Syntactic* equality:
+  x = x
+  [2, 1, 3] = [2, 1, 3]
+  
+*Definitional* equality (*intensional*, *up to computation*):
+  2 + 2 = 4
+  quicksort [2, 1, 3] = mergesort [2, 1, 3]
+  all of the `by refl` examples below
+
+*Propositional* equality (*provable*):
+  x + y = y + x
+  quicksort = mergesort
+ -/
 
 
 
-/-! `refl` proves `l = r`, where the two sides are syntactically equal up to
+/-! `refl` proves `l = r`, where the two sides are equal up to
 computation. Computation means unfolding of definitions, β-reduction
 (application of λ to an argument), `let`, and more. -/
 
@@ -250,6 +264,11 @@ lemma ι_example {α β : Type} (a : α) (b : β) :
   my_prod.first (my_prod.mk a b) = a :=
 by refl
 
+/-!
+
+Which ones of these are *reduction rules*?
+
+-/
 
 
 #check eq.refl
@@ -287,6 +306,30 @@ begin
   rw hb
 end
 
+#check add_comm
+#check add_assoc
+
+lemma nat_comm_example (a b c : ℕ) : 
+  a + b + c = c + b + a :=
+begin 
+  rw add_comm,
+  rw add_comm a,
+  rw add_assoc
+end
+
+lemma nat_comm_example₂ (a b c : ℕ) : 
+  a + b + c = c + b + a :=
+begin 
+  rw [add_comm, add_comm a, add_assoc]
+end
+
+lemma double_example (n : ℕ) :
+  double n = n + n + 0 :=
+begin 
+  rw double,
+  refl
+end
+
 lemma a_proof_of_negation₃ (a : Prop) :
   a → ¬¬ a :=
 begin
@@ -307,6 +350,7 @@ lemma cong_two_args_etc {α : Type} (a a' b b' : α)
     (g : α → α → ℕ → α) (ha : a = a') (hb : b = b') :
   g a b (1 + 1) = g a' b' 2 :=
 by simp [ha, hb]
+
 
 /-! `cc` applies __congruence closure__ to derive new equalities. -/
 
