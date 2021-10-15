@@ -122,7 +122,7 @@ lemma no_step_to_0_0 (s : score) :
   ¬ step s (0–0) :=
 begin
   intro h,
-  cases h
+  cases' h
 end
 
 
@@ -146,6 +146,22 @@ def star_rec {α : Type} (r : α → α → bool) :
   α → α → bool :=
 sorry
 
+
+example : star step (0–0) score.game_srv :=
+begin 
+  apply star.trans, 
+  { apply star.base,
+    constructor },
+  { apply star.trans,
+    { apply star.base,
+      constructor },
+    { apply star.trans,
+      { apply star.base,
+        constructor },
+      { apply star.base,
+        constructor,
+        linarith } } }  
+end
 
 /-! ### A Nonexample
 
