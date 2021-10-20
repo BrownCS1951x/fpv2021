@@ -65,7 +65,7 @@ __WHILE__ is a minimalistic imperative language with the following grammar:
 where `S` stands for a statement (also called command or program), `x` for a
 variable, `a` for an arithmetic expression, and `b` for a Boolean expression. -/
 
-#check state
+#print state
 
 inductive stmt : Type
 | skip   : stmt
@@ -75,6 +75,8 @@ inductive stmt : Type
 | while  : (state → Prop) → stmt → stmt
 
 infixr ` ;; ` : 90 := stmt.seq
+
+#check λ s : state, s "y" + 2 * s "z"
 
 /-! In our grammar, we deliberately leave the syntax of arithmetic and Boolean
 expressions unspecified. In Lean, we have the choice:
@@ -239,7 +241,8 @@ begin
       cases' ihw hr_1,
       refl },
     { cc } },
-  { cases' hr,
+  case while_false {
+    cases' hr,
     { cc },
     { refl } }
 end
@@ -695,6 +698,13 @@ iff.intro star_small_step_of_big_step
 
 /-! ## Parallelism (**optional**) -/
 
+/--
+a proof of `par_step i (Ss, t) (Ss', t')` represents:
+"
+  Let `Ss` be a list of WHILE programs that we wish to execute in parallel.
+  If we evaluate one step of the `i`th program in `Ss` while in state `t`, 
+  we reach state `t'`, with the list of programs `Ss'` remaining to execute."
+-/
 inductive par_step :
     nat → list stmt × state → list stmt × state → Prop
 | intro {Ss Ss' S S' s s' i}
@@ -704,6 +714,9 @@ inductive par_step :
     (hS' : Ss' = list.update_nth Ss i S') :
   par_step i (Ss, s) (Ss', s')
 
+
+
+
 lemma par_step_diamond {i j Ss Ts Ts' s t t'}
     (hi : i < list.length Ss)
     (hj : j < list.length Ss)
@@ -712,8 +725,14 @@ lemma par_step_diamond {i j Ss Ts Ts' s t t'}
     (hT' : par_step j (Ss, s) (Ts', t')) :
   ∃u Us, par_step j (Ts, t) (Us, u) ∧
     par_step i (Ts', t') (Us, u) :=
-sorry   -- unprovable
+sorry 
 
+
+
+
+/--
+`stmt.W S` returns the set of variables written to by a thread `S`.
+-/
 def stmt.W : stmt → set string
 | stmt.skip         := ∅
 | (stmt.assign x _) := {x}
@@ -721,9 +740,15 @@ def stmt.W : stmt → set string
 | (stmt.ite _ S T)  := stmt.W S ∪ stmt.W T
 | (stmt.while _ S)  := stmt.W S
 
-def exp.R {α : Type} : (state → α) → set string
-| f := {x | ∀s n, f (s{x ↦ n}) ≠ f s}
+/--
+`exp.R f` returns the set of variables read by an arithmetic or boolean expression `f`.
+-/
+def exp.R {α : Type} (f : state → α) : set string := 
+{x | ∃ s n, f (s{x ↦ n}) ≠ f s}
 
+/--
+`stmt.R S` returns the set of variables read by a thread `S`.
+-/
 def stmt.R : stmt → set string
 | stmt.skip         := ∅
 | (stmt.assign _ a) := exp.R a
@@ -731,6 +756,9 @@ def stmt.R : stmt → set string
 | (stmt.ite b S T)  := exp.R b ∪ stmt.R S ∪ stmt.R T
 | (stmt.while b S)  := exp.R b ∪ stmt.R S
 
+/--
+`stmt.V S` returns the set of variables written to or read by a thread `S`. 
+-/
 def stmt.V : stmt → set string
 | S := stmt.W S ∪ stmt.R S
 
