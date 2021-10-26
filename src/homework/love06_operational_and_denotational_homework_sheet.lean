@@ -1,5 +1,5 @@
-import .love01_definitions_and_statements_demo
-import .love10_denotational_semantics_demo
+import ..lectures.love01_definitions_and_statements_demo
+import ..lectures.love10_denotational_semantics_demo
 
 /-!
 # FPV Homework 6: Operational and denotational semantics
