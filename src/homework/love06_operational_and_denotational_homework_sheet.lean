@@ -76,11 +76,11 @@ inductive matches {α : Type } : regex α → list α → Prop
 * match the empty string (the base case of `R*`)
 * match `R` followed again by `R*` (the induction step of `R*`)
 
-2.1 (1 point). Explain why there is no rule for `nothing`. -/
+1.1 (1 point). Explain why there is no rule for `nothing`. -/
 
 -- enter your answer here
 
-/-! 2.2 (3 points). Prove the following inversion rules. -/
+/-! 1.2 (3 points). Prove the following inversion rules. -/
 
 @[simp] lemma matches_atom {α : Type} {s : list α} {a : α} :
   matches (regex.atom a) s ↔ s = [a] :=
@@ -107,14 +107,14 @@ sorry
 
 /-! ## Question 2: Monotonicity (4 points)
 
-1.1 (2 points). Prove the following lemma from the Ch. 10 lecture. -/
+2.1 (2 points). Prove the following lemma from the Ch. 10 lecture. -/
 
 lemma monotone_comp {α β : Type} [partial_order α] (f g : α → set (β × β))
     (hf : monotone f) (hg : monotone g) :
   monotone (λa, f a ◯ g a) :=
 sorry
 
-/-! 1.2 (2 points). Prove its cousin. -/
+/-! 2.2 (2 points). Prove its cousin. -/
 
 lemma monotone_restrict {α β : Type} [partial_order α] (f : α → set (β × β))
     (p : β → Prop) (hf : monotone f) :
@@ -130,7 +130,7 @@ instead of letters or symbols. Concatenation corresponds to composition of
 relations, and alternation is union. Mathematically, regexes and binary
 relations are both instances of Kleene algebras.
 
-2.1 (2 points). Complete the following translation of regular expressions to relations.
+3.1 (2 points). Complete the following translation of regular expressions to relations.
 
 Hint: Exploit the correspondence with the WHILE language. -/
 
@@ -140,7 +140,7 @@ def rel_of_regex {α : Type} : regex (set (α × α)) → set (α × α)
 | (regex.atom s)       := s
 -- enter the missing cases here
 
-/-! 2.2 (2 points). Prove the following recursive equation about your definition. -/
+/-! 3.2 (2 points). Prove the following recursive equation about your definition. -/
 
 lemma rel_of_regex_star {α : Type} (r : regex (set (α × α))) :
   rel_of_regex (regex.star r) =
