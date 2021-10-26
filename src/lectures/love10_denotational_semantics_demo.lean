@@ -134,13 +134,6 @@ For the semantics of programming languages:
 * `f` will correspond to either taking one extra iteration of the loop (if the
   condition `b` is true) or the identity (if `b` is false).
 
-Kleene's fixpoint theorem:
-
-    `f^0(∅) ∪ f^1(∅) ∪ f^2(∅) ∪ ⋯ = lfp f`
-
-The least fixpoint corresponds to finite executions of a program, which is all
-we care about.
-
 **Key observation**:
 
     Inductive predicates correspond to least fixpoints, but they are built into
@@ -165,6 +158,7 @@ All monotone functions `f : set α → set α` admit least and greatest fixpoint
 
 Assuming `α` is inhabited, we have `∅ ⊆ set.univ`, but
 `f ∅ = set.univ ⊈ ∅ = f set.univ`. -/
+#print partial_order
 
 def monotone {α β : Type} [partial_order α] [partial_order β]
   (f : α → β) : Prop :=
@@ -173,6 +167,7 @@ def monotone {α β : Type} [partial_order α] [partial_order β]
 lemma monotone_id {α : Type} [partial_order α] :
   monotone (λa : α, a) :=
 begin
+  rw monotone,
   intros a₁ a₂ ha,
   exact ha
 end
@@ -182,16 +177,17 @@ lemma monotone_const {α β : Type} [partial_order α]
   monotone (λ_ : α, b) :=
 begin
   intros a₁ a₂ ha,
-  exact le_refl b
+  simp
 end
 
 lemma monotone_union {α β : Type} [partial_order α]
     (f g : α → set β) (hf : monotone f) (hg : monotone g) :
   monotone (λa, f a ∪ g a) :=
 begin
+  rw monotone,
   intros a₁ a₂ ha b hb,
   cases' hb,
-  { exact or.intro_left _ (hf a₁ a₂ ha h) },
+  { exact set.mem_union_left (g a₂) (hf a₁ a₂ ha h) },
   { exact or.intro_right _ (hg a₁ a₂ ha h) }
 end
 
@@ -322,6 +318,16 @@ begin
   { assumption }
 end
 
+lemma lfp_least {α : Type} [complete_lattice α] (f : α → α) (X : α) (hX : X = f X) : 
+  lfp f ≤ X :=
+begin 
+  apply lfp_le,
+  rw ← hX,
+  -- `rw ← hX` is syntax for "rewrite with hX, right to left." 
+  -- It will replace `f X` with `X`. 
+  -- At that point, the goal is `X ≤ X`, which is solved automatically.
+end
+
 
 /-! ## A Relational Denotational Semantics, Continued -/
 
@@ -336,6 +342,26 @@ def denote : stmt → set (state × state)
   lfp (λX, ((denote S ◯ X) ⇃ b) ∪ (Id ⇃ (λs, ¬ b s)))
 
 notation `⟦` S `⟧`:= denote S
+
+/-
+This proof is entirely compositional:
+we just need to combine the monotone rules we've proved in the right order.
+You could imagine this being done automatically...
+
+Exercise: write this as a term mode proof!
+-/
+lemma lfp_monotone (b : state → Prop) (S : stmt) : 
+  monotone ((λX, ((denote S ◯ X) ⇃ b) ∪ (Id ⇃ (λs, ¬ b s)))) :=
+begin 
+  apply monotone_union,
+  { apply sorry_lemmas.monotone_restrict,
+    apply sorry_lemmas.monotone_comp,
+    { exact monotone_const _ },
+    { exact monotone_id } },
+  { apply sorry_lemmas.monotone_restrict,
+    exact monotone_const _ }
+end
+
 
 
 /-! ## Application to Program Equivalence
