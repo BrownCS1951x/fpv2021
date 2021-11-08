@@ -1,4 +1,5 @@
 import .love05_inductive_predicates_demo
+import data.real.cardinality
 
 
 /-! # LoVe Demo 11: Logical Foundations of Mathematics
@@ -10,6 +11,7 @@ proving theorems about them. -/
 
 set_option pp.beta true
 set_option pp.generalized_field_notation false
+open_locale cardinal 
 
 namespace LoVe
 
@@ -404,6 +406,85 @@ classical.choice nat.nonempty
 /-! ### Set-Theoretic Axiom of Choice -/
 
 #print classical.axiom_of_choice
+
+
+/-! ## Consistency
+
+If we can construct a closed term `p : false` (or `p : empty`), we can prove
+any proposition. Hopefully this is not the case.
+
+*Theorem* (consistency): there is no closed term `p : false`. 
+
+This can be interpreted in two ways:
+* Theoretical: abstractly, the inference rules are consistent
+* Applied: the actual implementation is consistent
+
+We'll focus on the theoretical side.
+
+Where would we even begin to prove something like theoretical consistency?
+
+
+We used semantic arguments to prove meta-properties about PL. 
+*Model* the abstract syntax of the language in some other system,
+and show that this interpretation preserves all of the axioms, properties,
+etc. of the original system. 
+
+If the semantic domain is consistent, then the original system is too. 
+
+Carneiro, 2019:
+<https://github.com/digama0/lean-type-theory/releases/download/v1.0/main.pdf>
+
+"... [we] construct the expected set-theoretic model, from which we derive 
+consistency of Lean relative to ZFC + {there are n inaccessible cardinals | n < ω}"
+
+Types -> sets, propositions -> true/false.
+
+There's more we can do with this notion of modeling. 
+What propositions are provable in Lean? 
+Those that are true in *every* model.
+-/
+
+section 
+local infixr ^ := @has_pow.pow cardinal cardinal cardinal.has_pow
+
+example : ℕ ≠ ℤ :=
+begin 
+  sorry
+end
+
+example : ℕ ≠ ℝ :=
+begin 
+  have nat_card : #ℕ = cardinal.omega := cardinal.mk_nat,
+  have real_card : #ℝ = 2 ^ cardinal.omega := cardinal.mk_real,
+  intro h,
+  cases' h,
+  rw nat_card at real_card,
+  have card_lt : cardinal.omega < 2 ^ cardinal.omega := cardinal.cantor cardinal.omega,
+  exact ne_of_lt card_lt real_card
+end
+
+end 
+
+/-!
+
+### Consistency of implementation 
+
+Modeling the abstract logical rules doesn't tell us anything about the actual implementation. 
+There could still be bugs: in elaboration, tactics, type checking, ... 
+
+This is now an engineering issue!
+The trusted code base only needs to answer one question:
+"Given two fully elaborated terms `t` and `T`, does `t` have type `T`?"
+
+Engineering task: minimize and simplify the code needed to answer this question. 
+All the work done by tactics, etc will be checked by this small (~8k loc) kernel.
+
+Even better, you can write a totally independent type checker to check the kernel's work.
+
+
+-/
+
+
 
 
 /-! ## Subtypes
