@@ -621,6 +621,8 @@ equal. -/
 #check quotient
 #print setoid
 
+#print equivalence
+
 #check quotient.mk
 #check quotient.sound
 #check quotient.exact
@@ -659,11 +661,9 @@ However, this does not work because subtraction on `ℕ` is ill-behaved (e.g.,
       { intros pn₁ pn₂ h,
         rw h },
       { intros pn₁ pn₂ pn₃ h₁₂ h₂₃,
-        apply @add_right_cancel _ _ _ (prod.snd pn₂),
-        cc }
+        linarith }
     end }
 
-#print equivalence
 
 lemma int.rel_iff (pn₁ pn₂ : ℕ × ℕ) :
   pn₁ ≈ pn₂ ↔
