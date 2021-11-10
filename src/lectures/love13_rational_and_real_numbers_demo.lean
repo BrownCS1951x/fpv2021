@@ -100,7 +100,7 @@ lemma add_equiv_add {a a' b b' : fraction} (ha : a ≈ a')
     (hb : b ≈ b') :
   a + b ≈ a' + b' :=
 begin
-  simp [setoid_iff, add_denom, add_num] at *,
+  simp [setoid_iff] at *, 
   calc  (num a * denom b + num b * denom a)
           * (denom a' * denom b')
       = num a * denom a' * denom b * denom b'
@@ -244,6 +244,15 @@ namespace rat
       apply quotient.sound,
       exact fraction.setoid_inv ha
     end }
+
+lemma add_commutes (a b : rat) : a + b = b + a :=
+begin 
+  apply quotient.induction_on₂ a b,
+  intros a' b',
+  apply quotient.sound,
+  simp [fraction.setoid_iff, fraction.add_denom, fraction.add_num],
+  ring
+end
 
 end rat
 
@@ -442,6 +451,10 @@ addition on Cauchy sequences as pairwise addition: -/
 { add := λf g : cau_seq,
     subtype.mk (λn : ℕ, seq_of f n + seq_of g n) sorry }
 
+lemma add_def (f g : cau_seq) : 
+  seq_of (f + g) = λ n, seq_of f n + seq_of g n := 
+rfl
+
 /-! Above, we omit the proof that the addition of two Cauchy sequences is again
 a Cauchy sequence.
 
@@ -480,6 +493,16 @@ begin
     by simp
 end
 
+lemma add_comm {f g : cau_seq} :
+  f + g ≈ g + f :=
+begin
+  intros ε hε,
+  apply exists.intro 0,
+  intros m hm,
+  simp [add_def, add_comm],
+  assumption
+end
+
 end cau_seq
 
 /-! The real numbers are the quotient: -/
@@ -502,6 +525,14 @@ namespace real
       apply quotient.sound,
       exact cau_seq.add_equiv_add ha hb,
     end }
+
+lemma add_comm (a b : real) : a + b = b + a :=
+begin 
+  apply quotient.induction_on₂ a b,
+  intros a' b',
+  apply quotient.sound,
+  apply cau_seq.add_comm
+end 
 
 end real
 
