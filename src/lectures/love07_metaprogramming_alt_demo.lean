@@ -62,24 +62,24 @@ lemma list.map_length {α β : Type} (f : α → β): ∀ l :
 | [] := rfl 
 | (h::t) := by simp [list.map, list.map_length]
 
-def list.multimap' {α : Type} (f : α → α) : list α → list α
+def list.multimap₁ {α : Type} (f : α → α) : list α → list α
 | [] := []
-| (h::t) := f h :: list.multimap' (list.map f t)
+| (h::t) := f h :: list.multimap₁ (list.map f t)
 
-def list.multimap {α : Type} (f : α → α) : list α → list α
+def list.multimap₂ {α : Type} (f : α → α) : list α → list α
 | [] := []
 | (h::t) := 
   have hl : list.sizeof (list.map f t) < 1 + list.sizeof t := sorry,
-  f h :: list.multimap (list.map f t)
+  f h :: list.multimap₂ (list.map f t)
 
-#eval list.multimap (λ x, x + 1) [0, 0, 0, 0]
+#eval list.multimap₂ (λ x, x + 1) [0, 0, 0, 0]
 
-def list.multimap' {α : Type} (f : α → α) : list α → list α
+def list.multimap₃ {α : Type} (f : α → α) : list α → list α
 | [] := []
 | (h::t) := 
   have hl : list.length (list.map f t) < list.length t + 1 :=
     by simp [list.map_length, nat.lt_succ_self],
-  f h :: list.multimap' (list.map f t)
+  f h :: list.multimap₃ (list.map f t)
 using_well_founded {rel_tac := λ _ _, `[exact ⟨_, measure_wf list.length⟩]}
 
 /-!
@@ -195,6 +195,8 @@ They have a solution: *monads*.
 
 
 ## Monads
+
+Extra reference: https://leanprover.github.io/programming_in_lean/#07_Monads.html
 
 Monads are an abstraction of "programming with side effects."
 The side effects we'll be interested in are state and failure. 
