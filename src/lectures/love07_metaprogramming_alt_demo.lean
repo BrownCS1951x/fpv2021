@@ -1,4 +1,4 @@
-import ..lovelib
+import .lovelib
 
 /-! # LoVe Demo 7: Metaprogramming
 
@@ -372,12 +372,302 @@ end
 
 ## Built-in data types 
 
+To be properly "meta," our tactics should be able to express 
+and manipulate Lean programs (= terms).
+We see these in Lean as traditional data types. But, like `tactic_state` 
+and others, the runtime representation of these is different.
+
 -/
+
+#check declaration 
+#check tactic.get_decl
 
 #check name 
 #print name 
 
+#check `nat 
+#check `nat.succ 
+
+#print prefix name
+
 #check expr 
 #print expr 
+
+#check expr.to_raw_fmt
+
+open tactic 
+
+run_cmd do 
+  d ← get_decl `nat.succ,
+  trace d.type.to_raw_fmt
+
+/-!
+
+A closed expression (e.g. the type or body of a declaration in the environment)
+should have no occurrences of `local_const` or `mvar`. 
+`elet` and `macro` can always be expanded. 
+
+Bound variables (`var`) are indexed by natural numbers, not names!
+The names and types are stored in the binders (`lam` or `pi`). 
+`var 0` refers to "the variable bound by the closest binder."
+`var 1` refers to "the variable bound by the second-closest binder."
+And so on.
+
+But often we aren't dealing with closed expressions. 
+If we get the type of the goal in the middle of a proof, it will probably refer 
+to things in the local context. 
+These are represented as local constants, `local_const`. 
+They have a unique name, pretty-printing name, binder info, and type. 
+
+-/
+
+meta def expr.local_unique_name : expr → name 
+| (expr.local_const nm ppnm bi tp) := nm
+| _ := default _
+
+example (a a a : ℕ) : true := by do 
+  lc ← local_context, 
+  trace lc,
+  trace (lc.map expr.local_unique_name),
+  triv
+
+/-!
+
+Things that are already defined in our environment can be accessed as `const`s. 
+A `const` has a name and list of universe parameters.
+
+Often we won't build these by hand, but use `tactic.mk_const`.
+-/
+
+#check expr.const `nat []
+run_cmd do 
+  e ← mk_const `nat,
+  trace e.to_raw_fmt 
+
+/-!
+Building expressions by hand is rather cumbersome. There are ways around this. 
+`tactic.mk_app` will fill in implicit arguments for you.
+-/
+
+#check tactic.mk_app
+
+run_cmd do 
+  z ← mk_const `nat.zero,
+  a ← mk_app `nat.add [z, z],
+  trace a,
+  if a = z then trace "eq" else trace "neq"
+
+/-!
+We can also write *quoted* expressions, like quoted names.
+-/
+
+#check `(0 + 0)
+
+/-!
+We can insert expressions into quoted expressions using antiquotes:
+-/
+
+meta def trace_add_expr (e : expr) : tactic unit := 
+trace `(0 + %%e)
+
+run_cmd trace_add_expr `(44)
+
+run_cmd trace_add_expr `(nat)
+
+/-! 
+Sometimes expr quoting fails. In these cases, we might have to use `pexpr`s.
+A pre-expression corresponds to unelaborated, input-level syntax:
+implicit arguments have not been filled in yet.
+
+`tactic.to_expr` performs *elaboration*: it turns a `pexpr` into an `expr`.
+-/
+
+meta def trace_add_expr' (e : expr) : tactic unit := 
+trace `(%%e + %%e)
+
+meta def trace_add_expr' (e : expr) : tactic unit := do 
+  e ← to_expr ``(%%e + %%e),
+  trace e
+
+run_cmd trace_add_expr' `(44)
+
+run_cmd trace_add_expr' `(nat)
+
+/-!
+We can walk through expressions, normally and monadically:
+-/
+
+#check @expr.fold
+
+#eval expr.fold `(1 + 0) "" (λ e _ s, s ++ ", " ++ to_string e)
+
+#check @expr.mfold 
+
+run_cmd expr.mfold `(1 + 0) () (λ e _ _, tactic.trace e)
+
+
+/-!
+One of the most important operations on `expr` is type inference.
+-/
+
+run_cmd do 
+  t ← infer_type `(λ x : ℕ, x + 1),
+  trace t
+
+/-!
+
+*Declarations* are stored in the *environment*. 
+A declaration is an axiom, constant, theorem, or definition. 
+
+-/
+
+#check tactic.get_env
+#check environment.fold 
+#check environment.mfold
+
+run_cmd do 
+  e ← get_env,
+  environment.mfold e () (λ d _, tactic.trace (declaration.to_name d))
+
+/-!
+## Working with goals and hypotheses 
+
+We already saw the tactic `local_context` for getting hypotheses. 
+`target` returns the type of the goal.
+`get_local` retrieves a single hypothesis by name.
+-/
+
+example (a b c : ℕ) (h : a + b = c) : a + c + 0 = a + c + 1 - 1 :=
+by do 
+  lc ← local_context,
+  trace lc,
+  lc_types ← list.mmap infer_type lc, 
+  trace lc_types,
+  tgt ← target,
+  trace tgt,
+  admit
+
+/-!
+`tactic.assert` adds a new hypothesis, creating a new goal for its proof. 
+
+There are lots of variants. 
+-/
+
+example (a b c : ℕ) : true :=
+by do 
+  ac ← get_local `a,
+  bc ← get_local `b,  
+  tactic.assert `new_hyp `(%%ac + %%bc = 0),
+  trace_state,
+  admit, 
+  admit 
+
+#check tactic.assert 
+#check tactic.assertv 
+#check @tactic.note 
+#check @tactic.note_anon
+
+/-!
+
+To modify the goal, we have our familiar `apply` tactic, 
+in a few variants:
+
+-/
+
+#check tactic.apply 
+#check tactic.applyc
+#check tactic.exact
+
+/-!
+There are lots of ways to call the simplifier...
+-/
+
+#check tactic.simplify
+#check tactic.simp_target
+#check tactic.simp_hyp 
+
+/-!
+If you want the familiar begin..end block syntax, there's 
+yet another form of quotation: e.g.
+
+    `[simp [lemma1, lemma2] at h] 
+
+is of type `tactic unit`. 
+-/
+
+example (a b c : ℕ) (h : a + b = c) : a + c + 0 = a + c + 1 - 1 :=
+by do 
+  lc ← local_context,
+  trace lc,
+  lc_types ← list.mmap infer_type lc, 
+  trace lc_types,
+  tgt ← target,
+  trace tgt,
+  `[simp]
+
+
+
+
+/-! ## Example: A Conjuction-Destructing Tactic
+
+We define a `destruct_and` tactic that automates the elimination of `∧` in
+premises, automating proofs such as these: -/
+
+lemma abcd_a (a b c d : Prop) (h : a ∧ (b ∧ c) ∧ d) :
+  a :=
+and.elim_left h
+
+lemma abcd_b (a b c d : Prop) (h : a ∧ (b ∧ c) ∧ d) :
+  b :=
+and.elim_left (and.elim_left (and.elim_right h))
+
+lemma abcd_bc (a b c d : Prop) (h : a ∧ (b ∧ c) ∧ d) :
+  b ∧ c :=
+and.elim_left (and.elim_right h)
+
+/-! Our tactic relies on a helper metafunction, which takes as argument the
+hypothesis `h` to use as an expression rather than as a name: -/
+
+meta def destruct_and_helper : expr → tactic unit
+| h :=
+  do
+    t ← tactic.infer_type h,
+    match t with
+    | `(%%a ∧ %%b) :=
+      tactic.exact h
+      <|>
+      do {
+        ha ← tactic.to_expr ``(and.elim_left %%h),
+        destruct_and_helper ha }
+      <|>
+      do {
+        hb ← tactic.to_expr ``(and.elim_right %%h),
+        destruct_and_helper hb }
+    | _            := tactic.exact h
+    end
+
+meta def destruct_and (nam : name) : tactic unit :=
+do
+  h ← tactic.get_local nam,
+  destruct_and_helper h
+
+/-! Let us check that our tactic works: -/
+
+lemma abc_a (a b c : Prop) (h : a ∧ b ∧ c) :
+  a :=
+by destruct_and `h
+
+lemma abc_b (a b c : Prop) (h : a ∧ b ∧ c) :
+  b :=
+by destruct_and `h
+
+lemma abc_bc (a b c : Prop) (h : a ∧ b ∧ c) :
+  b ∧ c :=
+by destruct_and `h
+
+lemma abc_ac (a b c : Prop) (h : a ∧ b ∧ c) :
+  a ∧ c :=
+by destruct_and `h   -- fails
+
 
 end LoVe 
