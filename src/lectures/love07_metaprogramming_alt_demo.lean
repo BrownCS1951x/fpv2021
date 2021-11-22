@@ -1,4 +1,4 @@
-import .lovelib
+import ..lovelib
 
 /-! # LoVe Demo 7: Metaprogramming
 
