@@ -646,7 +646,7 @@ meta def destruct_and_helper : expr → tactic unit
     | _            := tactic.exact h
     end
 
-meta def destruct_and (nam : name) : tactic unit :=
+meta def tactic.destruct_and (nam : name) : tactic unit :=
 do
   h ← tactic.get_local nam,
   destruct_and_helper h
@@ -655,19 +655,245 @@ do
 
 lemma abc_a (a b c : Prop) (h : a ∧ b ∧ c) :
   a :=
-by destruct_and `h
+by tactic.destruct_and `h
 
 lemma abc_b (a b c : Prop) (h : a ∧ b ∧ c) :
   b :=
-by destruct_and `h
+by tactic.destruct_and `h
 
 lemma abc_bc (a b c : Prop) (h : a ∧ b ∧ c) :
   b ∧ c :=
-by destruct_and `h
+by tactic.destruct_and `h
 
 lemma abc_ac (a b c : Prop) (h : a ∧ b ∧ c) :
   a ∧ c :=
 by destruct_and `h   -- fails
 
+
+/-!
+## Interactive parsing
+
+Writing 
+    destruct_and `h
+with the quoted name `h` is ugly. We don't want to do this in our tactic proofs. 
+And indeed, most of the time, we don't have to:
+there's no quoting in `apply h`, `simp [h]`, etc.
+
+
+There's some trickery going on here at the parser level. 
+`begin...end` and `by` blocks are parsed in "interactive tactic mode."
+When we wrote `by destruct_and` above, Lean first looked for a declaration 
+called `tactic.interactive.destruct_and`. When it failed to find such a tactic,
+it fell back on resolving `destruct_and` in the normal way. 
+-/
+
+#check @tactic.apply
+#check @tactic.interactive.apply
+
+/-!
+Instead of taking arguments of type `expr`, `name`, etc., interactive mode tactics
+take parser commands. 
+
+`setup_tactic_parser` is equivalent to 
+```
+open _root_.lean
+open _root_.lean.parser
+open _root_.interactive _root_.interactive.types
+local postfix `?`:9001 := optional
+local postfix *:9001 := many .
+```
+-/
+ 
+section interactive_mode
+
+setup_tactic_parser 
+
+meta def _root_.tactic.interactive.destruct_and (h : parse ident) : tactic unit :=
+tactic.destruct_and h
+
+
+/-!
+`parse ident` is definitionally equal to `name`, but in interactive mode,
+we can write it unquoted.
+We put this in the `_root_` namespace to escape the `LoVe` namespace. 
+-/
+
+
+lemma abc_bc' (a b c : Prop) (h : a ∧ b ∧ c) :
+  b ∧ c :=
+by destruct_and h
+
+
+
+#check parse parser.pexpr 
+#check parse pexpr_list
+#check parse ident*
+#check parse ident?
+
+end interactive_mode
+
+
+meta def tactic.destruct_and_anon : tactic unit :=
+do 
+  lc ← local_context,
+  lc.mfirst (λ h, destruct_and_helper h)
+
+
+section interactive_mode
+
+setup_tactic_parser
+
+meta def _root_.tactic.interactive.destruct_and' (h : parse ident?) : tactic unit :=
+match h with 
+| some h' := tactic.destruct_and h'
+| none    := tactic.destruct_and_anon
+end 
+
+
+lemma abc_bc'' (a b c : Prop) (h : a ∧ b ∧ c) :
+  b ∧ c :=
+by destruct_and'
+
+
+
+end interactive_mode 
+
+/-!
+
+## Goal management
+
+We know that tactics ultimately need to build a proof term. 
+How does this actually happen?
+
+At the beginning of a begin...end block where the goal is to prove `T`, 
+Lean creates a *metavariable* `?m1 : T`. 
+Tactics that update the goal, like `applyc`, 
+(partially) assign values to the goal metavariable.
+These values can contain new metavariables. 
+
+-/
+
+example : true ∧ false :=
+by do 
+  gs ← get_goals,
+  trace gs,
+  trace (gs.map expr.to_raw_fmt),
+  gs' ← gs.mmap infer_type,
+  trace gs',
+  let orig_goal := gs.head,
+  trace "------",
+
+  applyc `and.intro,
+
+  gs ← get_goals,
+  trace gs,
+  trace (gs.map expr.to_raw_fmt),
+  gs' ← gs.mmap infer_type,
+  trace gs',
+  trace "------",
+
+  orig_goal ← instantiate_mvars orig_goal, 
+  trace orig_goal.to_raw_fmt
+
+/-!
+`get_goals` returns a list of metavariables (of type `epxr`),
+representing the remaining proof obligations. 
+*Unifying* these metavariables with other terms will create partial assignments.
+
+(This is a very low-level technique, we don't usually do this in practice!)
+-/
+
+example : true :=
+by do 
+  [g] ← get_goals,
+  trace g,
+  unify g `(trivial),
+  gs ← get_goals,
+  trace gs,
+  set_goals [],
+  gs ← get_goals,
+  trace gs
+
+
+
+/-!
+Note that this can also get us in "trouble": we can tell the system we've 
+finished a proof when we really haven't.
+-/
+
+
+meta def _root_.tactic.interactive.oops : tactic unit :=
+do 
+  mv ← mk_meta_var `(true),
+  set_goals [mv]
+
+example : false :=
+begin 
+  oops,
+  trivial,
+end 
+
+
+/-!
+
+Metavariable assignments are stored in the tactic state. 
+So the ultimate goal of a begin...end block is:
+"write a function tactic_state → tactic_state that assigns the initial goal 
+metavariable to a term that does not contain any metavariables."
+
+-/
+
+
+/-! ## Example: A Provability Advisor
+
+Next, we implement a `prove_direct` tool that traverses all lemmas in the
+database and checks whether one of them can be used to prove the current goal. A
+similar tactic is available in `mathlib` under the name `library_search`. -/
+
+meta def is_theorem : declaration → bool
+| (declaration.defn _ _ _ _ _ _) := ff
+| (declaration.thm _ _ _ _)      := tt
+| (declaration.cnst _ _ _ _)     := ff
+| (declaration.ax _ _ _)         := tt
+
+meta def get_all_theorems : tactic (list name) :=
+do
+  env ← tactic.get_env,
+  pure (environment.fold env [] (λdecl nams,
+    if is_theorem decl then declaration.to_name decl :: nams
+    else nams))
+
+meta def prove_with_name (nam : name) : tactic unit :=
+do
+  tactic.applyc nam
+    ({ md := tactic.transparency.reducible, unify := ff }
+     : tactic.apply_cfg),
+  tactic.all_goals tactic.assumption,
+  pure ()
+
+meta def prove_direct : tactic unit :=
+do
+  nams ← get_all_theorems,
+  list.mfirst (λnam,
+      do
+        prove_with_name nam,
+        tactic.trace ("directly proved by " ++ to_string nam))
+    nams
+
+lemma nat.eq_symm (x y : ℕ) (h : x = y) :
+  y = x :=
+by prove_direct
+
+lemma nat.eq_symm₂ (x y : ℕ) (h : x = y) :
+  y = x :=
+by library_search
+
+lemma list.reverse_twice (xs : list ℕ) :
+  list.reverse (list.reverse xs) = xs :=
+by prove_direct
+
+lemma list.reverse_twice_symm (xs : list ℕ) :
+  xs = list.reverse (list.reverse xs) :=
+by prove_direct   -- fails
 
 end LoVe 
