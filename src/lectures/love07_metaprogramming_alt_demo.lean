@@ -1,4 +1,4 @@
-import ..lovelib
+import .lovelib
 
 /-! # LoVe Demo 7: Metaprogramming
 
@@ -844,56 +844,101 @@ metavariable to a term that does not contain any metavariables."
 -/
 
 
-/-! ## Example: A Provability Advisor
+/-! 
 
-Next, we implement a `prove_direct` tool that traverses all lemmas in the
-database and checks whether one of them can be used to prove the current goal. A
-similar tactic is available in `mathlib` under the name `library_search`. -/
+## Proof by reflection
 
-meta def is_theorem : declaration → bool
-| (declaration.defn _ _ _ _ _ _) := ff
-| (declaration.thm _ _ _ _)      := tt
-| (declaration.cnst _ _ _ _)     := ff
-| (declaration.ax _ _ _)         := tt
+YOu may have noticed that we can't prove anything about the tactics we write. 
+But there's a middle ground: sometimes with a bit of meta "wrapper code,"
+we can turn proofs about syntax-like operations into actual proof terms. 
 
-meta def get_all_theorems : tactic (list name) :=
-do
-  env ← tactic.get_env,
-  pure (environment.fold env [] (λdecl nams,
-    if is_theorem decl then declaration.to_name decl :: nams
-    else nams))
+The general strategy looks like this:
+* represent the syntax of some class of formulas in (non-meta) Lean 
+* define an interpretation function from these formulas to Prop
+* define some operation on this syntax, and prove it correct with respect to the interpretation 
+* write a small bit of meta code that turns a goal into a statement about your reflected syntax 
 
-meta def prove_with_name (nam : name) : tactic unit :=
-do
-  tactic.applyc nam
-    ({ md := tactic.transparency.reducible, unify := ff }
-     : tactic.apply_cfg),
-  tactic.all_goals tactic.assumption,
-  pure ()
+The idea is that the goal left after applying your correctness theorem can be proved by computation.
 
-meta def prove_direct : tactic unit :=
-do
-  nams ← get_all_theorems,
-  list.mfirst (λnam,
-      do
-        prove_with_name nam,
-        tactic.trace ("directly proved by " ++ to_string nam))
-    nams
+This is commonly used for evaluation or normalization functions. 
+`ring`, for example, can be implemented by defining the syntax of ring expressions 
+and verifying a normalization algorithm: 
+if 
+`ring_syntax : Type`,
+`interp {α : Type} [ring α] : ring_syntax → α`,
+`normalize : ring_syntax → ring_syntax`, then 
+`∀ r1 r2 : ring_syntax, interp r1 = interp r2 ↔ normalize r1 = normalize r2`. 
 
-lemma nat.eq_symm (x y : ℕ) (h : x = y) :
-  y = x :=
-by prove_direct
+The meta code looks at a goal `c + a*b = b*a + c`,
+constructs `ring_syntax` objects `r1` and `r2` representing both sides,
+and changes the goal to showing that `normalize r1 = normalize r2`. 
+This can be proved by `refl`.
 
-lemma nat.eq_symm₂ (x y : ℕ) (h : x = y) :
-  y = x :=
-by library_search
+You could imagine doing the same with, say, a SAT solver.
+-/
 
-lemma list.reverse_twice (xs : list ℕ) :
-  list.reverse (list.reverse xs) = xs :=
-by prove_direct
+inductive bexpr 
+| atom : bool → bexpr 
+| and : bexpr → bexpr → bexpr 
+| or : bexpr → bexpr → bexpr 
+| imp : bexpr → bexpr → bexpr 
+| not : bexpr → bexpr 
 
-lemma list.reverse_twice_symm (xs : list ℕ) :
-  xs = list.reverse (list.reverse xs) :=
-by prove_direct   -- fails
+open bexpr
+
+def interp : bexpr → Prop 
+| (atom tt) := true 
+| (atom ff) := false
+| (and a b) := interp a ∧ interp b
+| (or a b) := interp a ∨ interp b
+| (imp a b) := interp a → interp b
+| (not b) := ¬ interp b
+
+@[simp]
+def normalize : bexpr → bool 
+| (atom b) := b
+| (and a b) := normalize a && normalize b
+| (or a b) := normalize a || normalize b
+| (imp a b) := (bnot (normalize a)) || normalize b
+| (not b) := bnot (normalize b)
+
+theorem normalize_correct (b : bexpr) : normalize b = tt ↔ interp b :=
+begin 
+  induction' b; try {simp [interp] at *},
+  case and : { finish },
+  case or : { finish },
+  case not : { simpa using not_iff_not.mpr ih },
+  case atom:
+  { cases b,
+    { simp [normalize], intro h, cases h },
+    { simp [interp] } },
+  case imp : 
+  { have h_not : normalize b = ff ↔ ¬ interp b := by simpa using not_iff_not.mpr ih_b,
+    simp [imp_iff_not_or, *] },
+end 
+
+meta def bexpr_of_expr : expr → option expr 
+| `(true) := some `(bexpr.atom tt)
+| `(false) := some `(bexpr.atom ff)
+| `(%%a ∧ %%b) := do a ← bexpr_of_expr a, b ← bexpr_of_expr b, some `(bexpr.and %%(a) %%(b))
+| `(%%a ∨ %%b) := do a ← bexpr_of_expr a, b ← bexpr_of_expr b, some `(bexpr.or %%(a) %%(b))
+| `(%%a → %%b) := do a ← bexpr_of_expr a, b ← bexpr_of_expr b, some `(bexpr.imp %%(a) %%(b))
+| `(¬ %%a) := do a ← bexpr_of_expr a, some `(bexpr.not %%(a))
+| _ := none
+
+meta def _root_.tactic.interactive.change_goal : tactic unit :=
+do 
+  t ← target, 
+  match bexpr_of_expr t with 
+  | some t' := do apply `(iff.mp (normalize_correct %%(t'))), skip
+  | none := fail "goal is not a bexpr pattern"
+  end
+
+
+example : (true → true) ∨ false :=
+begin 
+  change_goal,
+  refl
+end
 
 end LoVe 
