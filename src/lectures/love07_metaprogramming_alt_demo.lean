@@ -1,4 +1,4 @@
-import .lovelib
+import ..lovelib
 
 /-! # LoVe Demo 7: Metaprogramming
 
@@ -754,7 +754,9 @@ lemma abc_bc'' (a b c : Prop) (h : a ∧ b ∧ c) :
   b ∧ c :=
 by destruct_and'
 
-
+/-!
+Interactive-mode tactics are *always* `tactic unit`.
+-/
 
 end interactive_mode 
 
@@ -874,7 +876,6 @@ constructs `ring_syntax` objects `r1` and `r2` representing both sides,
 and changes the goal to showing that `normalize r1 = normalize r2`. 
 This can be proved by `refl`.
 
-You could imagine doing the same with, say, a SAT solver.
 -/
 
 inductive bexpr 
@@ -894,7 +895,6 @@ def interp : bexpr → Prop
 | (imp a b) := interp a → interp b
 | (not b) := ¬ interp b
 
-@[simp]
 def normalize : bexpr → bool 
 | (atom b) := b
 | (and a b) := normalize a && normalize b
@@ -904,17 +904,14 @@ def normalize : bexpr → bool
 
 theorem normalize_correct (b : bexpr) : normalize b = tt ↔ interp b :=
 begin 
-  induction' b; try {simp [interp] at *},
+  induction' b; try {simp [normalize, interp] at *},
   case and : { finish },
   case or : { finish },
   case not : { simpa using not_iff_not.mpr ih },
-  case atom:
-  { cases b,
-    { simp [normalize], intro h, cases h },
-    { simp [interp] } },
+  case atom: { cases b; simp [normalize, interp] },
   case imp : 
   { have h_not : normalize b = ff ↔ ¬ interp b := by simpa using not_iff_not.mpr ih_b,
-    simp [imp_iff_not_or, *] },
+    finish },
 end 
 
 meta def bexpr_of_expr : expr → option expr 
@@ -940,5 +937,17 @@ begin
   change_goal,
   refl
 end
+
+/-!
+You could imagine doing the same with, say, a SAT solver.
+
+Modify `bexpr` to cover all propositional formulas: `atom : ℕ → bexpr`. 
+Add an argument to `interp`: `dict : ℕ → Prop` assigning atoms to propositions. 
+`normalize` becomes `is_tautology : bexpr → bool`. 
+`normalize_correct` becomes 
+  `is_tautology_correct (b : bexpr) : is_tautology b = tt ↔ ∀ dict, interp dict b`
+`bexpr_of_expr` will also have to return a dictionary. 
+
+-/
 
 end LoVe 
